@@ -20,26 +20,28 @@ All you need is your **1Password Service Account Token** — everything else (SS
 
 ## Usage
 
-### Option A — inline token (non-interactive)
+### Recommended — clone, fill in `.env`, run
+
+```bash
+git clone https://github.com/mfmseth/booststap.git
+cd booststap
+cp .env.example .env
+# edit .env and paste your token
+bash bootstrap.sh
+```
+
+### Option B — inline token (non-interactive)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mfmseth/booststap/main/bootstrap.sh \
   | OP_SERVICE_ACCOUNT_TOKEN=ops_eyJ... bash
 ```
 
-### Option B — prompted
+### Option C — prompted (no .env, no inline token)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mfmseth/booststap/main/bootstrap.sh | bash
 # You will be prompted: Enter 1Password Service Account Token:
-```
-
-### Option C — clone and run
-
-```bash
-git clone https://github.com/mfmseth/booststap.git
-cd booststap
-bash bootstrap.sh
 ```
 
 ## After bootstrap

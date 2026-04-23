@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Bootstrap a new workstation for homelab management.
 # Requirements: curl, sudo (Linux) or Homebrew (macOS)
-# Usage: OP_SERVICE_ACCOUNT_TOKEN=ops_... bash bootstrap.sh
+# Usage: fill in .env then run bash bootstrap.sh
 set -euo pipefail
 
 HOMELAB_DIR="${HOMELAB_DIR:-$HOME/homelab2}"
 HOMELAB_REPO="git@github.com:mfmseth/homelab2.git"
 SSH_DIR="$HOME/.ssh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Detect platform ────────────────────────────────────────────────────────
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -18,6 +19,13 @@ else
 fi
 
 echo "==> Platform: $PLATFORM"
+
+# ── Load .env if present ───────────────────────────────────────────────────
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$SCRIPT_DIR/.env"
+  echo "==> Loaded .env"
+fi
 
 # ── 1Password service account token ───────────────────────────────────────
 if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]]; then
