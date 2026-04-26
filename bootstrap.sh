@@ -102,7 +102,7 @@ fi
 # ── Run the bootstrap playbook ─────────────────────────────────────────────
 echo "==> Running bootstrap-workstation playbook..."
 cd "$HOMELAB_DIR"
-ansible-galaxy collection install -r requirements.yml -q
+ansible-galaxy collection install -r requirements.yml
 ansible-playbook playbooks/bootstrap-workstation.yml \
   --connection=local \
   --inventory localhost, \
