@@ -1,0 +1,11 @@
+# Shared homelab aliases — deployed by bootstrap-workstation.yml
+
+export PATH="$HOME/.local/bin:$PATH"
+
+export KUBECONFIG=$(find ~/.kube \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null | xargs -0 echo | tr ' ' ':')
+
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+alias idc='git add -A && git commit -m "idc" && git push'
+alias claude-skip='claude --dangerously-skip-permissions'
