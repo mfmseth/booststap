@@ -6,8 +6,8 @@ set -euo pipefail
 
 BOOTSTRAP_DIR="${BOOTSTRAP_DIR:-$HOME/booststap}"
 BOOTSTRAP_REPO="git@github.com:mfmseth/booststap.git"
-HOMELAB2_DIR="${HOMELAB2_DIR:-$HOME/homelab2}"
-HOMELAB2_REPO="git@github.com:mfmseth/homelab2.git"
+HOMELAB_ANSIBLE_DIR="${HOMELAB_ANSIBLE_DIR:-$HOME/homelab-ansible}"
+HOMELAB_ANSIBLE_REPO="git@github.com:mfmseth/homelab-ansible.git"
 SSH_DIR="$HOME/.ssh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -138,15 +138,15 @@ else
     git -C "$BOOTSTRAP_DIR" pull --ff-only
 fi
 
-# ── Clone homelab2 repo (private) ─────────────────────────────────────────
-if [[ ! -d "$HOMELAB2_DIR/.git" ]]; then
-  echo "==> Cloning homelab2..."
+# ── Clone homelab-ansible repo (private) ─────────────────────────────────────────
+if [[ ! -d "$HOMELAB_ANSIBLE_DIR/.git" ]]; then
+  echo "==> Cloning homelab-ansible..."
   GIT_SSH_COMMAND="ssh -i $SSH_DIR/id_rsa -o StrictHostKeyChecking=no" \
-    git clone "$HOMELAB2_REPO" "$HOMELAB2_DIR"
+    git clone "$HOMELAB_ANSIBLE_REPO" "$HOMELAB_ANSIBLE_DIR"
 else
-  echo "==> Updating homelab2..."
+  echo "==> Updating homelab-ansible..."
   GIT_SSH_COMMAND="ssh -i $SSH_DIR/id_rsa -o StrictHostKeyChecking=no" \
-    git -C "$HOMELAB2_DIR" pull --ff-only
+    git -C "$HOMELAB_ANSIBLE_DIR" pull --ff-only
 fi
 
 # ── Run the bootstrap playbook ─────────────────────────────────────────────
@@ -160,7 +160,7 @@ ansible-playbook playbooks/bootstrap-workstation.yml \
 
 # ── Run the private configure playbook ────────────────────────────────────
 echo "==> Running configure-workstation playbook..."
-ansible-playbook "$HOMELAB2_DIR/playbooks/configure-workstation.yml" \
+ansible-playbook "$HOMELAB_ANSIBLE_DIR/playbooks/configure-workstation.yml" \
   --connection=local \
   --inventory localhost, \
   --extra-vars "ansible_python_interpreter=auto_silent"
