@@ -10,8 +10,8 @@ All you need is your **1Password Service Account Token** — everything else (SS
 2. Validates your service account token
 3. Installs `git` and `ansible`
 4. Fetches your GitHub SSH key from 1Password and writes it to `~/.ssh/id_rsa`
-5. Clones [homelab2](https://github.com/mfmseth/homelab2) into `~/homelab2`
-6. Runs `playbooks/bootstrap-workstation.yml` from homelab2, which:
+5. Clones [homelab-ansible](https://github.com/mfmseth/homelab-ansible) into `~/homelab-ansible`
+6. Runs `playbooks/bootstrap-workstation.yml` from homelab-ansible, which:
    - Writes all homelab SSH key pairs from 1Password
    - Writes `~/.ssh/config` with all host shortcuts
    - Sets global `git` user name and email
@@ -47,8 +47,8 @@ curl -fsSL https://raw.githubusercontent.com/mfmseth/booststap/main/bootstrap.sh
 ## After bootstrap
 
 ```bash
-source ~/homelab2/.env
-cd ~/homelab2
+source ~/homelab-ansible/.env
+cd ~/homelab-ansible
 ansible-playbook playbooks/<playbook>.yml
 ```
 
