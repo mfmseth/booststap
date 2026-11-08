@@ -7,6 +7,9 @@
   vars:
     ssh_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh"
     bootstrap_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/booststap"
+    ssh_keys:
+      - { op_item: "Homelab Hosts Key", file: id_ed25519 }
+      - { op_item: "Home Assistant SSH Key", file: homelab_ha }
 
   tasks:
     - name: Ensure .ssh directory exists
@@ -15,17 +18,38 @@
         state: directory
         mode: "0700"
 
-    - name: Write Homelab Hosts Key (id_ed25519)
-      ansible.builtin.copy:
-        content: "{{ lookup('ansible.builtin.pipe', 'op read \"op://homelab/Homelab Hosts Key/private key?ssh-format=openssh\"') }}\n"
-        dest: "{{ ssh_dir }}/id_ed25519"
-        mode: "0600"
+    # Keys are read with a command task (not a pipe lookup) so that when `op`
+    # fails, its real error message is shown instead of just "returned 1".
+    - name: Read SSH keys from 1Password
+      ansible.builtin.command:
+        argv: [op, read, "op://homelab/{{ item.op_item }}/private key?ssh-format=openssh"]
+      loop: "{{ ssh_keys }}"
+      loop_control:
+        label: "{{ item.op_item }}"
+      register: op_keys
+      changed_when: false
+      failed_when: false
+      no_log: true
 
-    - name: Write Home Assistant SSH Key (homelab_ha)
+    - name: Fail with the 1Password error if a key could not be read
+      ansible.builtin.fail:
+        msg: >-
+          op read failed for "{{ item.item.op_item }}" (rc={{ item.rc }}):
+          {{ item.stderr | default('no stderr') }}
+      loop: "{{ op_keys.results }}"
+      loop_control:
+        label: "{{ item.item.op_item }}"
+      when: item.rc != 0
+
+    - name: Write SSH keys
       ansible.builtin.copy:
-        content: "{{ lookup('ansible.builtin.pipe', 'op read \"op://homelab/Home Assistant SSH Key/private key?ssh-format=openssh\"') }}\n"
-        dest: "{{ ssh_dir }}/homelab_ha"
+        content: "{{ item.stdout }}\n"
+        dest: "{{ ssh_dir }}/{{ item.item.file }}"
         mode: "0600"
+      loop: "{{ op_keys.results }}"
+      loop_control:
+        label: "{{ item.item.file }}"
+      no_log: true
 
     - name: Deploy shared bash aliases
       ansible.builtin.copy:
