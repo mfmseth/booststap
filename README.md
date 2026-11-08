@@ -8,7 +8,7 @@ All you need is your **1Password Service Account Token** — everything else (SS
 
 1. Installs the `op` CLI (via apt on Linux/WSL, Homebrew on macOS)
 2. Validates your service account token
-3. Installs `git` and `ansible`
+3. Installs `git` and `ansible` (Ansible via pipx, so it works on Debian 12+ / Ubuntu 23.04+ "externally managed" Python)
 4. Fetches your GitHub SSH key from 1Password and writes it to `~/.ssh/id_rsa`
 5. Clones [homelab-ansible](https://github.com/mfmseth/homelab-ansible) into `~/homelab-ansible`
 6. Runs `playbooks/bootstrap-workstation.yml` from homelab-ansible, which:

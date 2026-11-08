@@ -102,18 +102,34 @@ if ! command -v ansible &>/dev/null; then
   if [[ "$PLATFORM" == "mac" ]]; then
     brew install ansible
   else
-    if [[ "$CAN_SUDO" == true ]]; then
-      sudo apt-get install -y python3-pip
-      python3 -m pip install --user ansible
+    # Debian 12+/Ubuntu 23.04+ mark the system Python as "externally managed"
+    # (PEP 668), so plain `pip install --user` fails. Install Ansible into its
+    # own isolated environment instead: pipx if we can get it, else a venv.
+    export PATH="$HOME/.local/bin:$PATH"
+    if [[ "$CAN_SUDO" == true ]] && ! command -v pipx &>/dev/null; then
+      sudo apt-get update -qq
+      sudo apt-get install -y pipx
+    fi
+
+    if command -v pipx &>/dev/null; then
+      pipx install --include-deps ansible
+    elif python3 -m venv --help &>/dev/null; then
+      # No sudo, no pipx — private venv under ~/.local, binaries linked into ~/.local/bin
+      ANSIBLE_VENV="$HOME/.local/share/ansible-venv"
+      python3 -m venv "$ANSIBLE_VENV"
+      "$ANSIBLE_VENV/bin/pip" install --quiet --upgrade pip ansible
+      for bin in "$ANSIBLE_VENV"/bin/ansible*; do
+        ln -sf "$bin" "$HOME/.local/bin/$(basename "$bin")"
+      done
     else
-      # No sudo and no pip — bootstrap pip with --break-system-packages (user-local only, safe)
+      # Last resort: no sudo, no pipx, no venv module — user-local pip install
       if ! python3 -m pip --version &>/dev/null; then
         curl -sSf https://bootstrap.pypa.io/get-pip.py \
           | python3 - --user --break-system-packages --quiet
       fi
       python3 -m pip install --user --break-system-packages ansible
     fi
-    export PATH="$HOME/.local/bin:$PATH"
+    hash -r
   fi
 fi
 
