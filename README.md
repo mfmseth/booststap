@@ -1,22 +1,24 @@
 # booststap
 
-One-shot bootstrap script for a new WSL, Linux, or macOS workstation.
+One-shot bootstrap script for a new WSL, Debian/Ubuntu, or macOS workstation.
 
 All you need is your **1Password Service Account Token** — everything else (SSH keys, SSH config, git config, Ansible, and the homelab repo itself) is pulled from 1Password and set up automatically.
 
 ## What it does
 
-1. Installs the `op` CLI (via apt on Linux/WSL, Homebrew on macOS)
-2. Validates your service account token
-3. Installs `git` and `ansible` (Ansible via pipx, so it works on Debian 12+ / Ubuntu 23.04+ "externally managed" Python)
-4. Fetches your GitHub SSH key from 1Password and writes it to `~/.ssh/id_rsa`
-5. Clones [homelab-ansible](https://github.com/mfmseth/homelab-ansible) into `~/homelab-ansible`
-6. Runs `playbooks/bootstrap-workstation.yml` from homelab-ansible, which:
+1. On Debian/Ubuntu/WSL, installs base packages (`curl`, `gnupg`, `git`, `pipx`, …) — works as root on minimal Debian with no `sudo`
+2. Installs the `op` CLI (via apt on Linux/WSL, Homebrew on macOS)
+3. Validates your service account token
+4. Installs `git` and `ansible` (Ansible via pipx, so it works on Debian 12+ / Ubuntu 23.04+ "externally managed" Python)
+5. Fetches your GitHub SSH key from 1Password and writes it to `~/.ssh/id_rsa`
+6. Clones [homelab-ansible](https://github.com/mfmseth/homelab-ansible) into `~/homelab-ansible`
+7. Runs `playbooks/bootstrap-workstation.yml` from homelab-ansible, which:
    - Writes all homelab SSH key pairs from 1Password
    - Writes `~/.ssh/config` with all host shortcuts
    - Sets global `git` user name and email
    - Creates `.env` with your token pre-filled
    - Installs Ansible collections
+   - On Debian/Ubuntu, makes `~/.bashrc` load `~/.bash_aliases` if it doesn't already (e.g. root on minimal Debian)
 
 ## Usage
 
@@ -57,8 +59,8 @@ ansible-playbook playbooks/<playbook>.yml
 | Requirement | Where to get it |
 |-------------|----------------|
 | 1Password Service Account Token | 1Password → Settings → Developer → Service Accounts, or backed up under `homelab` → `Service Account Auth Token: ansible` |
-| `curl` | Pre-installed on macOS; `sudo apt install curl` on Debian/Ubuntu |
-| `sudo` / Homebrew | Standard on Linux/WSL; install [Homebrew](https://brew.sh) on macOS before running |
+| `curl` | Pre-installed on macOS; on Debian/Ubuntu only needed for the `curl \| bash` one-liners (`apt install curl`), the script installs everything else |
+| root, `sudo` or Homebrew | Debian/Ubuntu: run as root or a sudo user (password prompt is fine); without either, it falls back to user-local installs. macOS: install [Homebrew](https://brew.sh) first |
 
 ## SSH keys managed
 

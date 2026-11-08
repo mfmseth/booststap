@@ -2,7 +2,8 @@
 - name: Bootstrap workstation
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
+  gather_subset: [min]
 
   vars:
     ssh_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh"
@@ -56,3 +57,20 @@
         src: "{{ bootstrap_dir }}/files/bashrc"
         dest: "{{ lookup('ansible.builtin.env', 'HOME') }}/.bash_aliases"
         mode: "0644"
+
+    # Debian's default ~/.bashrc only sources ~/.bash_aliases for normal users
+    # created from /etc/skel; root's .bashrc and minimal images don't, so the
+    # aliases above would never load. Add the hook if it's missing.
+    - name: Make ~/.bashrc load ~/.bash_aliases (Debian/Ubuntu)
+      ansible.builtin.blockinfile:
+        path: "{{ lookup('ansible.builtin.env', 'HOME') }}/.bashrc"
+        create: true
+        mode: "0644"
+        marker: "# {mark} booststap bash_aliases"
+        block: |
+          if [ -f ~/.bash_aliases ]; then
+              . ~/.bash_aliases
+          fi
+      when:
+        - ansible_facts.os_family == "Debian"
+        - "'bash_aliases' not in lookup('ansible.builtin.file', lookup('ansible.builtin.env', 'HOME') ~ '/.bashrc', errors='ignore') | default('', true)"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Bootstrap a new workstation for homelab management.
-# Requirements: curl, sudo (Linux) or Homebrew (macOS)
+# Requirements: Homebrew (macOS). On Debian/Ubuntu/WSL, curl and the other
+# prerequisites are installed automatically when root or sudo is available.
 # Usage: OP_SERVICE_ACCOUNT_TOKEN=ops_... bash bootstrap.sh
 set -euo pipefail
 
@@ -12,24 +13,53 @@ SSH_DIR="$HOME/.ssh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Detect platform ────────────────────────────────────────────────────────
+DISTRO="unknown"
 if [[ "$OSTYPE" == "darwin"* ]]; then
   PLATFORM="mac"
-elif grep -qi microsoft /proc/version 2>/dev/null; then
-  PLATFORM="wsl"
+  DISTRO="macos"
 else
-  PLATFORM="linux"
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    PLATFORM="wsl"
+  else
+    PLATFORM="linux"
+  fi
+  if [[ -r /etc/os-release ]]; then
+    # shellcheck source=/dev/null
+    DISTRO="$(. /etc/os-release && echo "${ID:-unknown}")"
+    DISTRO_LIKE="$(. /etc/os-release && echo "${ID_LIKE:-}")"
+  fi
+  if [[ "$DISTRO" != "debian" && "$DISTRO" != "ubuntu" && "${DISTRO_LIKE:-}" != *debian* ]]; then
+    echo "WARNING: $DISTRO is not Debian-based; this script only knows apt. Continuing anyway."
+  fi
 fi
 
-echo "==> Platform: $PLATFORM"
+echo "==> Platform: $PLATFORM ($DISTRO)"
 
-# ── Check sudo availability ────────────────────────────────────────────────
-if sudo -n true 2>/dev/null; then
-  CAN_SUDO=true
+# ── Check root / sudo availability ─────────────────────────────────────────
+# Minimal Debian installs often run as root with no sudo package, and normal
+# sudo setups need a password, so `sudo -n` alone isn't a reliable test.
+if [[ "$PLATFORM" == "mac" ]]; then
+  CAN_SUDO=false; SUDO=""
+elif [[ $EUID -eq 0 ]]; then
+  CAN_SUDO=true; SUDO=""
+  echo "==> Running as root"
+elif command -v sudo &>/dev/null && { sudo -n true 2>/dev/null || sudo -v </dev/tty; }; then
+  CAN_SUDO=true; SUDO="sudo"
 else
-  CAN_SUDO=false
-  echo "==> No sudo access — using user-local installs (~/.local/bin)"
-  mkdir -p "$HOME/.local/bin"
-  export PATH="$HOME/.local/bin:$PATH"
+  CAN_SUDO=false; SUDO=""
+  echo "==> No root/sudo access — using user-local installs (~/.local/bin)"
+fi
+mkdir -p "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+
+# ── Base packages (Debian/Ubuntu/WSL) ──────────────────────────────────────
+if [[ "$PLATFORM" != "mac" && "$CAN_SUDO" == true ]]; then
+  echo "==> Installing base packages..."
+  export DEBIAN_FRONTEND=noninteractive
+  $SUDO apt-get update -qq
+  $SUDO apt-get install -y -qq \
+    ca-certificates curl gnupg git openssh-client \
+    python3 python3-venv pipx unzip
 fi
 
 # ── Load .env if present ───────────────────────────────────────────────────
@@ -41,7 +71,8 @@ fi
 
 # ── 1Password service account token ───────────────────────────────────────
 if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]]; then
-  read -rsp "Enter 1Password Service Account Token: " OP_SERVICE_ACCOUNT_TOKEN
+  # Read from the terminal, not stdin, so this works with `curl ... | bash`
+  read -rsp "Enter 1Password Service Account Token: " OP_SERVICE_ACCOUNT_TOKEN </dev/tty
   echo
 fi
 export OP_SERVICE_ACCOUNT_TOKEN
@@ -52,15 +83,15 @@ if ! command -v op &>/dev/null; then
   if [[ "$PLATFORM" == "mac" ]]; then
     brew install --cask 1password-cli
   elif [[ "$CAN_SUDO" == true ]]; then
-    sudo mkdir -p /etc/apt/keyrings
+    $SUDO mkdir -p /etc/apt/keyrings
     curl -sS https://downloads.1password.com/linux/keys/1password.asc \
-      | gpg --dearmor \
-      | sudo tee /etc/apt/keyrings/1password-archive-keyring.gpg > /dev/null
+      | gpg --dearmor --yes \
+      | $SUDO tee /etc/apt/keyrings/1password-archive-keyring.gpg > /dev/null
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/1password-archive-keyring.gpg] \
 https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
-      | sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
-    sudo apt-get update -qq
-    sudo apt-get install -y 1password-cli
+      | $SUDO tee /etc/apt/sources.list.d/1password.list > /dev/null
+    $SUDO apt-get update -qq
+    $SUDO apt-get install -y 1password-cli
   else
     # No sudo — download op binary directly to ~/.local/bin
     OP_ARCH="$(uname -m)"; [[ "$OP_ARCH" == "x86_64" ]] && OP_ARCH="amd64" || OP_ARCH="arm64"
@@ -89,9 +120,9 @@ if ! command -v git &>/dev/null; then
   if [[ "$PLATFORM" == "mac" ]]; then
     brew install git
   elif [[ "$CAN_SUDO" == true ]]; then
-    sudo apt-get install -y git
+    $SUDO apt-get install -y git
   else
-    echo "ERROR: git is not installed and sudo is unavailable. Install git manually and re-run."
+    echo "ERROR: git is not installed and root/sudo is unavailable. Install git manually and re-run."
     exit 1
   fi
 fi
@@ -107,8 +138,7 @@ if ! command -v ansible &>/dev/null; then
     # own isolated environment instead: pipx if we can get it, else a venv.
     export PATH="$HOME/.local/bin:$PATH"
     if [[ "$CAN_SUDO" == true ]] && ! command -v pipx &>/dev/null; then
-      sudo apt-get update -qq
-      sudo apt-get install -y pipx
+      $SUDO apt-get install -y pipx
     fi
 
     if command -v pipx &>/dev/null; then
